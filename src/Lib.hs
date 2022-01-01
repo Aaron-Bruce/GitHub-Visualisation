@@ -9,6 +9,7 @@
 {-# LANGUAGE TypeOperators        #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE DuplicateRecordFields     #-}
 
 module Lib
     ( someFunc
@@ -16,27 +17,37 @@ module Lib
 
 import qualified GitHub as GH
 import qualified Servant.Client               as SC
-import           Network.HTTP.Client          (defaultManagerSettings,
-                                               newManager)
+import           Network.HTTP.Client          (newManager)
+import           Network.HTTP.Client.TLS      (tlsManagerSettings)
+
+import Data.Text hiding (map,intercalate)
+import Data.List (intercalate)
 
 someFunc :: IO ()
 someFunc = do
   putStrLn "Let's try a GitHubCall"
-  testGitHubCall
+  testGitHubCall "esjmb"
   putStrLn "end."
   
 
-testGitHubCall :: IO ()
-testGitHubCall =
-  (SC.runClientM GH.test =<< env) >>= \case
+testGitHubCall :: Text -> IO ()
+testGitHubCall name =
+  (SC.runClientM (GH.getUser (Just "haskell-app") name) =<< env) >>= \case
 
     Left err -> do
       putStrLn $ "heuston, we have a problem: " ++ show err
     Right res -> do
       putStrLn $ "the votes of the github jury are " ++ show res
+      -- now lets get the users repositories
+      (SC.runClientM (GH.getUserRepos (Just "haskell-app") name) =<< env) >>= \case
+        Left err -> do
+          putStrLn $ "heuston, we have a problem (gettign repos): " ++ show err
+        Right res' -> do
+          putStrLn $ "repositories are:" ++
+            intercalate ", " (map (\(GH.GitHubRepo n _ _ ) -> unpack n) res')
 
 
   where env :: IO SC.ClientEnv
         env = do
-          manager <- newManager defaultManagerSettings
+          manager <- newManager tlsManagerSettings
           return $ SC.mkClientEnv manager (SC.BaseUrl SC.Http "api.github.com" 80 "")
