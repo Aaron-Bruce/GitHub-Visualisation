@@ -19,6 +19,7 @@ import           Servant.Client
 
 type Username = Text
 type UserAgent = Text
+type Reponame  = Text
 
 data GitHubUser =
   GitHubUser { login :: Text
@@ -32,15 +33,23 @@ data GitHubRepo =
              , language :: Maybe Text
              } deriving (Generic, FromJSON, Show)
 
+data RepoCommit =
+  RepoCommit { sha :: Text
+             } deriving (Generic, FromJSON, Show)
+
 type GitHubAPI = "users" :> Header "user-agent" UserAgent
                          :> Capture "username" Username  :> Get '[JSON] GitHubUser
             :<|> "users" :> Header "user-agent" UserAgent
                          :> Capture "username" Username  :> "repos" :>  Get '[JSON] [GitHubRepo]
+            :<|> "repos" :> Header  "user-agent" UserAgent
+                         :> Capture "username" Username
+                         :> Capture "repo"     Reponame  :> "commits" :>  Get '[JSON] [RepoCommit]
 
 gitHubAPI :: Proxy GitHubAPI
 gitHubAPI = Proxy
 
 getUser :: Maybe UserAgent -> Username -> ClientM GitHubUser
 getUserRepos :: Maybe UserAgent -> Username -> ClientM [GitHubRepo]
+getRepoCommits :: Maybe UserAgent -> Username -> Reponame -> ClientM [RepoCommit]
 
-getUser :<|> getUserRepos = client gitHubAPI
+getUser :<|> getUserRepos :<|> getRepoCommits = client gitHubAPI
